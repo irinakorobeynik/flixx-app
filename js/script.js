@@ -1,5 +1,15 @@
 const global = {
-    currentPage: window.location.pathname,
+  currentPage: window.location.pathname,
+  search: {
+    term: '',
+    type: '',
+    page: 1,
+    totalPage: 1
+  },
+    // Registering the key at https://www.themoviedb.org/settings/api is free
+    // This is only for development of very small projects. I'm aware I should store the key and make requests from a server
+  apiKey: '36c558c21777358450a92bc1e4e6b241',
+  apiUrl: 'https://api.themoviedb.org/3/'
 };
 
 
@@ -114,6 +124,57 @@ function  displayBackgroundImage(type, path) {
     document.querySelector('#show-details').appendChild(overlayDiv);
   }
 };
+
+async function search() {
+  const quesryString = window.location.search;
+  const urlParams = new URLSearchParams(quesryString);
+  global.search.type = urlParams.get('type');
+  global.search.term = urlParams.get('search-term');
+  if (global.search.term !=+ '' && global.search.term !== null) {
+    const { results, total_pages, page } = await searchAPIData();
+    if (results.lenght === 0) {
+      showAlert('No results found', 'alert-success');
+      return;
+    }
+
+    displaySearchResults(results);
+
+    document.querySelector('#search-term').value = '';
+  } else {
+    showAlert('Please Enter Serach Term');
+  }
+  
+};
+
+function displaySearchResults(results) {
+    results.forEach(result => {
+        const div = document.createElement('div');
+        div.classList.add('card');
+        div.innerHTML = `<a href="${global.search.type}-details.html?id=${result.id}">
+            ${
+            result.poster_path? `<img
+              src="https://image.tmdb.org/t/p/w500/${result.poster_path}"
+              class="card-img-top"
+              alt="${global.search.type ==='movie'? result.title: result.name}"
+            />`:
+            `<img
+              src="../images/no-image.jpg"
+              class="card-img-top"
+              alt="${global.search.type ==='movie'? result.title: result.name}"
+            />`
+            }
+          </a>
+          <div class="card-body">
+            <h5 class="card-title">${global.search.type ==='movie'? result.title: result.name}</h5>
+            <p class="card-text">
+              <small class="text-muted">Release: ${global.search.type ==='movie'? result.release_date: result.first_air_date}</small>
+            </p>
+          </div>`;
+        document.querySelector('#search-results').appendChild(div);
+    });
+    
+  
+}
 
 async function displaySlider() {
   const { results } = await fetchAPIData('movie/now_playing');
@@ -243,12 +304,18 @@ async function displayShowDetails() {
 
 // Fetch data from TMDB API
 async function fetchAPIData(endpoint) {
-    // Registering the key at https://www.themoviedb.org/settings/api is free
-    // This is only for development of very small projects. I'm aware I should store the key and make requests from a server
-    const API_KEY = '36c558c21777358450a92bc1e4e6b241';
-    const API_URL = 'https://api.themoviedb.org/3/';
+
     showSpinner();
-    const res = await fetch(`${API_URL}${endpoint}?api_key=${API_KEY}&language=en-US`);
+    const res = await fetch(`${global.apiUrl}${endpoint}?api_key=${global.apiKey}&language=en-US`);
+    const data = await res.json();
+    hideSpinner();
+    return data;
+};
+
+async function searchAPIData(endpoint) {
+
+    showSpinner();
+    const res = await fetch(`${global.apiUrl}search/${global.search.type}?api_key=${global.apiKey}&language=en-US&query=${global.search.term}`);
     const data = await res.json();
     hideSpinner();
     return data;
@@ -265,6 +332,15 @@ function highlightLink() {
         }
     });   
 };
+
+function showAlert(message, className = 'alert-error') {
+  const alertL = document.createElement('div');
+  alertL.classList.add('alert', className);
+  alertL.appendChild(document.createTextNode(message));
+  document.querySelector('#alert').appendChild(alertL);
+  setTimeout(() =>  alertL.remove(), 3000);
+  
+}
 
 function addCommasToNumber(number) {
       number = number.toString();
@@ -296,7 +372,8 @@ function init() {
         displayShowDetails();
             break;
         case '/search.html':
-            console.log('search');
+        console.log('search');
+        search();
             break;
 
     }
