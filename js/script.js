@@ -4,7 +4,8 @@ const global = {
     term: '',
     type: '',
     page: 1,
-    totalPage: 1
+    totalPages: 1,
+    totalResults: 0
   },
     // Registering the key at https://www.themoviedb.org/settings/api is free
     // This is only for development of very small projects. I'm aware I should store the key and make requests from a server
@@ -130,13 +131,17 @@ async function search() {
   const urlParams = new URLSearchParams(quesryString);
   global.search.type = urlParams.get('type');
   global.search.term = urlParams.get('search-term');
-  if (global.search.term !=+ '' && global.search.term !== null) {
-    const { results, total_pages, page } = await searchAPIData();
-    if (results.lenght === 0) {
-      showAlert('No results found', 'alert-success');
+  if (global.search.term !== '' && global.search.term !== null) {
+    const { results, total_pages, page, total_results } = await searchAPIData();
+
+    global.search.page = page;
+    global.search.totalPages = total_pages;
+    global.search.totalResults = total_results;
+
+    if (results.length === 0) {
+      showAlert('No results found');
       return;
     }
-
     displaySearchResults(results);
 
     document.querySelector('#search-term').value = '';
@@ -147,6 +152,9 @@ async function search() {
 };
 
 function displaySearchResults(results) {
+    document.querySelector('#search-results').innerHTML='';
+    document.querySelector('#search-results-heading').innerHTML='';
+    document.querySelector('#pagination').innerHTML='';
     results.forEach(result => {
         const div = document.createElement('div');
         div.classList.add('card');
@@ -170,9 +178,43 @@ function displaySearchResults(results) {
               <small class="text-muted">Release: ${global.search.type ==='movie'? result.release_date: result.first_air_date}</small>
             </p>
           </div>`;
+        document.querySelector('#search-results-heading').innerHTML = 
+        `<h2> ${results.length} of ${global.search.totalResults} Results for ${global.search.term}</h2>`;  
+
         document.querySelector('#search-results').appendChild(div);
     });
     
+    displayPagination();
+  
+};
+
+function displayPagination() {
+  const div = document.createElement('div');
+  div.classList.add('pagination');
+  div.innerHTML= `<button class="btn btn-primary" id="prev">Prev</button>
+          <button class="btn btn-primary" id="next">Next</button>
+          <div class="page-counter">Page ${global.search.page} of ${global.search.totalPages}</div>`
+  document.querySelector('#pagination').appendChild(div);
+
+  if(global.search.page === 1){
+      document.querySelector('#prev').disabled = true;
+  };
+
+    if(global.search.page === global.search.totalPages){
+      document.querySelector('#next').disabled = true;
+  };
+
+  document.querySelector('#next').addEventListener('click', async () => {
+    global.search.page++;
+    const {results, total_pages} = await searchAPIData();
+    displaySearchResults(results);
+  });
+
+    document.querySelector('#prev').addEventListener('click', async () => {
+    global.search.page--;
+    const {results, total_pages} = await searchAPIData();
+    displaySearchResults(results);
+  });
   
 }
 
@@ -315,7 +357,8 @@ async function fetchAPIData(endpoint) {
 async function searchAPIData(endpoint) {
 
     showSpinner();
-    const res = await fetch(`${global.apiUrl}search/${global.search.type}?api_key=${global.apiKey}&language=en-US&query=${global.search.term}`);
+    const res = await fetch(`${global.apiUrl}search/${global.search.type}?api_key=${global.apiKey}&language=en-US&query=${global.search.term}
+      &page=${global.search.page}`);
     const data = await res.json();
     hideSpinner();
     return data;
